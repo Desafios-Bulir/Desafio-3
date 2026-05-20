@@ -7,6 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Redirect, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,10 +19,12 @@ import { useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/Sidebar';
 import { StatCard } from '@/components/StatCard';
 import { servicesService, ServiceResponse } from '@/services/services.service';
+import { bookingsService } from '@/services/bookings.service';
+import { walletService } from '@/services/wallet.service';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ServicosScreen() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, updateUserBalance } = useAuth();
   const isProvider = user?.role === 'PROVIDER';
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -26,30 +33,77 @@ export default function ServicosScreen() {
   const [services, setServices] = useState<ServiceResponse[]>([]);
   const [sidebarVisible, setSidebarVisible] = useState(false);
 
-  async function fetchServices() {
+  // Client states
+  const [balance, setBalance] = useState<number>(0);
+  const [selectedService, setSelectedService] = useState<ServiceResponse | null>(null);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [bookingLoading, setBookingLoading] = useState(false);
+
+  const fetchServices = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await servicesService.getMyServices();
+      const data = isProvider
+        ? await servicesService.getMyServices()
+        : await servicesService.getAll();
       setServices(data);
+
+      if (!isProvider) {
+        const balData = await walletService.getBalance();
+        setBalance(balData.balance);
+      }
     } catch (error) {
       console.warn('Erro ao conectar ao servidor. Carregando dados simulados...', error);
+      
+      // Fallback balance
+      if (!isProvider) {
+        setBalance(user?.balance || 4000);
+      }
+
       // Mock services fallback matching standard items
       setServices([
         {
           id: 'mock-1',
-          name: 'Corte de Cabelo Masculino',
-          description: 'Corte moderno com lavagem e finalização inclusos.',
-          price: 2000,
-          providerId: 'mock-p',
+          name: 'Desenvolver Apps',
+          description: 'Desenvolvedor de Apps Android/iOS nativo e híbrido.',
+          price: 20000,
+          providerId: 'mock-p1',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         },
         {
           id: 'mock-2',
+          name: 'Corte de Cabelo Masculino',
+          description: 'Corte moderno com lavagem e finalização inclusos.',
+          price: 1500,
+          providerId: 'mock-p2',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'mock-3',
           name: 'Manicure & Pedicure',
           description: 'Manicure e pedicure completa com esmaltação premium.',
-          price: 1500,
-          providerId: 'mock-p',
+          price: 2000,
+          providerId: 'mock-p3',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'mock-4',
+          name: 'Pintura Residencial',
+          description: 'Pintura interna e externa com acabamento refinado.',
+          price: 800,
+          providerId: 'mock-p4',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'mock-5',
+          name: 'Limpeza de Ar Condicionado',
+          description: 'Limpeza e higienização completa de split.',
+          price: 500,
+          providerId: 'mock-p5',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
@@ -57,17 +111,17 @@ export default function ServicosScreen() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [isProvider, user?.balance]);
 
   useFocusEffect(
     useCallback(() => {
-      if (isAuthenticated && isProvider) {
+      if (isAuthenticated) {
         fetchServices();
       }
-    }, [isAuthenticated, isProvider])
+    }, [isAuthenticated, fetchServices])
   );
 
-  // Handle service deletion
+  // Handle service deletion (Provider only)
   const handleDeleteService = (id: string, name: string) => {
     Alert.alert(
       'Confirmar Exclusão',
@@ -85,7 +139,6 @@ export default function ServicosScreen() {
               fetchServices();
             } catch (error) {
               console.error('Delete error:', error);
-              // Fallback for mock deletion
               setServices((prev) => prev.filter((s) => s.id !== id));
               Alert.alert('Sucesso (Simulação)', 'Serviço removido com sucesso!');
               setLoading(false);
@@ -96,20 +149,113 @@ export default function ServicosScreen() {
     );
   };
 
+  // Open booking modal for Client
+  const handleOpenBookingModal = (service: ServiceResponse) => {
+    setSelectedService(service);
+    
+    // Set tomorrow's date by default in MM/DD/YYYY format
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const dd = String(tomorrow.getDate()).padStart(2, '0');
+    const yyyy = tomorrow.getFullYear();
+    setScheduledDate(`${mm}/${dd}/${yyyy}`);
+    setScheduledTime('10:00 AM');
+  };
+
+  // Submit client service booking
+  const handleConfirmBooking = async () => {
+    if (!selectedService) return;
+
+    // Parse MM/DD/YYYY date format
+    let parsedDate: Date;
+    try {
+      const dateParts = scheduledDate.split('/');
+      if (dateParts.length !== 3) {
+        throw new Error('Formato de data inválido. Use MM/DD/AAAA');
+      }
+      const month = parseInt(dateParts[0], 10) - 1;
+      const day = parseInt(dateParts[1], 10);
+      const year = parseInt(dateParts[2], 10);
+
+      // Parse time format "HH:MM AM/PM" or similar
+      let hour = 10;
+      let minute = 0;
+      const timeClean = scheduledTime.trim().toUpperCase();
+      const isPM = timeClean.includes('PM');
+      const isAM = timeClean.includes('AM');
+      const timeNumPart = timeClean.replace('AM', '').replace('PM', '').trim();
+      const timeParts = timeNumPart.split(':');
+      
+      if (timeParts.length >= 1) {
+        hour = parseInt(timeParts[0], 10);
+      }
+      if (timeParts.length >= 2) {
+        minute = parseInt(timeParts[1], 10);
+      }
+
+      if (isPM && hour < 12) {
+        hour += 12;
+      }
+      if (isAM && hour === 12) {
+        hour = 0;
+      }
+
+      parsedDate = new Date(year, month, day, hour, minute);
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error('Data ou hora inválida.');
+      }
+    } catch (err: any) {
+      Alert.alert('Erro de Agendamento', err.message || 'Use o formato MM/DD/AAAA para a data e HH:MM AM/PM para a hora.');
+      return;
+    }
+
+    if (parsedDate < new Date()) {
+      Alert.alert('Erro de Agendamento', 'O agendamento não pode ser agendado no passado.');
+      return;
+    }
+
+    try {
+      setBookingLoading(true);
+      await bookingsService.createBooking({
+        serviceId: selectedService.id,
+        scheduledAt: parsedDate.toISOString(),
+      });
+      
+      Alert.alert('Sucesso', 'Serviço contratado com sucesso!');
+      const newBal = balance - selectedService.price;
+      setBalance(newBal);
+      updateUserBalance(newBal);
+      setSelectedService(null);
+    } catch (error: any) {
+      console.error('Booking error:', error);
+      const errorMsg = error.response?.data?.message || 'Ocorreu um erro ao contratar o serviço.';
+      
+      // Simulating success anyway if we receive mock ids
+      if (selectedService.id.startsWith('mock-')) {
+        Alert.alert('Sucesso (Simulação)', 'Serviço contratado com sucesso! (Modo Simulação)');
+        const newBal = balance - selectedService.price;
+        setBalance(newBal);
+        updateUserBalance(newBal);
+        setSelectedService(null);
+      } else {
+        Alert.alert('Erro', Array.isArray(errorMsg) ? errorMsg[0] : errorMsg);
+      }
+    } finally {
+      setBookingLoading(false);
+    }
+  };
+
   if (!isAuthenticated) {
     return <Redirect href="/login" />;
   }
 
-  if (!isProvider) {
-    return <Redirect href={"/(tabs)" as any} />;
-  }
-
-  // Find most requested service (simulated or derived)
+  // Derived values
   const mostRequested = services.length > 0 ? services[0].name : 'N/A';
 
   return (
     <View style={styles.container}>
-      {/* Header matching image exactly */}
+      {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <View style={styles.headerContent}>
           <View style={styles.headerLeft}>
@@ -120,7 +266,9 @@ export default function ServicosScreen() {
             >
               <Ionicons name="menu" size={26} color="#1f2937" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Meus Serviços</Text>
+            <Text style={styles.headerTitle}>
+              {isProvider ? 'Meus Serviços' : 'Serviços Disponíveis'}
+            </Text>
           </View>
           
           <View style={styles.headerRight}>
@@ -132,14 +280,16 @@ export default function ServicosScreen() {
               <Ionicons name="notifications-outline" size={20} color="#1f2937" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.newServiceBtn}
-              onPress={() => router.push('/criar-servico' as any)}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add" size={18} color="#ffffff" style={styles.btnIcon} />
-              <Text style={styles.newServiceBtnText}>Novo Serviço</Text>
-            </TouchableOpacity>
+            {isProvider && (
+              <TouchableOpacity
+                style={styles.newServiceBtn}
+                onPress={() => router.push('/criar-servico' as any)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={18} color="#ffffff" style={styles.btnIcon} />
+                <Text style={styles.newServiceBtnText}>Novo Serviço</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -157,20 +307,20 @@ export default function ServicosScreen() {
       >
         {/* Stat Cards Grid */}
         <View style={styles.statsGrid}>
-          {/* Card 1: Meus Serviços Ativos */}
+          {/* Card 1: Services Count */}
           <StatCard
             iconName="briefcase-outline"
             iconColor="#2563eb"
             iconBgColor="#eff6ff"
             cardBgColor="#eff6ff"
-            label="Meus Serviços Ativos"
+            label={isProvider ? 'Meus Serviços Ativos' : 'Serviços Disponíveis'}
             value={services.length.toString()}
             badgeText={`Total: ${services.length}`}
             badgeTextColor="#2563eb"
             badgeBgColor="#dbeafe"
           />
 
-          {/* Card 2: Avaliação Média */}
+          {/* Card 2: Rating */}
           <StatCard
             iconName="star-outline"
             iconColor="#d97706"
@@ -183,24 +333,40 @@ export default function ServicosScreen() {
             badgeBgColor="#fef3c7"
           />
 
-          {/* Card 3: Mais Solicitado */}
-          <StatCard
-            iconName="build-outline"
-            iconColor="#059669"
-            iconBgColor="#ecfdf5"
-            cardBgColor="#ecfdf4"
-            label="Mais Solicitado"
-            value={mostRequested}
-            badgeText={services.length > 0 ? "Mais solicitado" : "Sem reservas"}
-            badgeTextColor="#047857"
-            badgeBgColor="#d1fae5"
-          />
+          {/* Card 3: Balance or Most Requested */}
+          {isProvider ? (
+            <StatCard
+              iconName="build-outline"
+              iconColor="#059669"
+              iconBgColor="#ecfdf5"
+              cardBgColor="#ecfdf4"
+              label="Mais Solicitado"
+              value={mostRequested}
+              badgeText={services.length > 0 ? 'Mais solicitado' : 'Sem reservas'}
+              badgeTextColor="#047857"
+              badgeBgColor="#d1fae5"
+            />
+          ) : (
+            <StatCard
+              iconName="construct-outline"
+              iconColor="#7c3aed"
+              iconBgColor="#f5f3ff"
+              cardBgColor="#f5f3ff"
+              label="Meu Saldo"
+              value={`KZ ${balance.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`}
+              badgeText="Disponível"
+              badgeTextColor="#047857"
+              badgeBgColor="#d1fae5"
+            />
+          )}
         </View>
 
-        {/* Gerenciar Catálogo Section */}
+        {/* Catalog Section */}
         <View style={styles.tableCard}>
           <View style={styles.tableHeader}>
-            <Text style={styles.tableTitle}>Gerenciar Catálogo</Text>
+            <Text style={styles.tableTitle}>
+              {isProvider ? 'Gerenciar Catálogo' : 'Catálogo de Serviços'}
+            </Text>
           </View>
 
           {loading ? (
@@ -210,7 +376,9 @@ export default function ServicosScreen() {
           ) : services.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                Nenhum serviço registrado no seu catálogo.
+                {isProvider
+                  ? 'Nenhum serviço registrado no seu catálogo.'
+                  : 'Nenhum serviço disponível no momento.'}
               </Text>
             </View>
           ) : (
@@ -220,16 +388,12 @@ export default function ServicosScreen() {
                 <Text style={[styles.columnHeader, styles.flexColName]}>SERVIÇO</Text>
                 <Text style={[styles.columnHeader, styles.flexColPrice]}>PREÇO</Text>
                 <Text style={[styles.columnHeader, styles.flexColDuration]}>DURAÇÃO</Text>
-                <View style={styles.flexColAction}></View>
+                {!isProvider && <Text style={[styles.columnHeader, styles.flexColStatus]}>STATUS</Text>}
+                <Text style={[styles.columnHeader, isProvider ? styles.flexColActionProvider : styles.flexColActionClient]}></Text>
               </View>
 
               {services.map((item, index) => {
-                // Formatting price to Angolan Kwanza
-                const formattedPrice = new Intl.NumberFormat('pt-AO', {
-                  style: 'currency',
-                  currency: 'AOA',
-                  minimumFractionDigits: 2
-                }).format(item.price).replace('AOA', 'KZ');
+                const formattedPrice = `KZ ${item.price.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}`;
 
                 return (
                   <View 
@@ -250,19 +414,41 @@ export default function ServicosScreen() {
                       <Text style={styles.servicePrice}>{formattedPrice}</Text>
                     </View>
 
-                    {/* Duration - Fallback standard */}
+                    {/* Duration */}
                     <View style={styles.flexColDuration}>
-                      <Text style={styles.serviceDuration}>1h</Text>
+                      <View style={styles.durationRow}>
+                        <Ionicons name="time-outline" size={13} color="#9ca3af" />
+                        <Text style={styles.serviceDuration} numberOfLines={1}>A combinar</Text>
+                      </View>
                     </View>
 
-                    {/* Action - Delete */}
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteService(item.id, item.name)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                    </TouchableOpacity>
+                    {/* Status badge for client */}
+                    {!isProvider && (
+                      <View style={styles.flexColStatus}>
+                        <View style={styles.statusBadge}>
+                          <Text style={styles.statusBadgeText}>Ativo</Text>
+                        </View>
+                      </View>
+                    )}
+
+                    {/* Actions */}
+                    {isProvider ? (
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteService(item.id, item.name)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity
+                        style={styles.contratarBtn}
+                        onPress={() => handleOpenBookingModal(item)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.contratarBtnText}>Contratar</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 );
               })}
@@ -270,6 +456,132 @@ export default function ServicosScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Booking Modal (Client Only) */}
+      {selectedService && (
+        <Modal
+          visible={!!selectedService}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setSelectedService(null)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalOverlay}
+          >
+            <TouchableWithoutFeedback onPress={() => setSelectedService(null)}>
+              <View style={styles.modalBackdrop} />
+            </TouchableWithoutFeedback>
+
+            <View style={styles.modalContent}>
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Contratar Serviço</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={() => setSelectedService(null)}
+                >
+                  <Ionicons name="close" size={20} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Service details */}
+              <View style={styles.modalBody}>
+                <View style={styles.detailSection}>
+                  <Text style={styles.modalLabel}>SERVIÇO</Text>
+                  <Text style={styles.modalServiceName}>{selectedService.name}</Text>
+                  <Text style={styles.modalServiceDesc}>{selectedService.description}</Text>
+                </View>
+
+                {/* Price and Balance grid */}
+                <View style={styles.priceBalanceGrid}>
+                  <View style={styles.gridCell}>
+                    <Text style={styles.modalLabel}>PREÇO DO SERVIÇO</Text>
+                    <Text style={styles.modalPriceValue}>
+                      KZ {selectedService.price.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                  <View style={[styles.gridCell, styles.alignRight]}>
+                    <Text style={styles.modalLabel}>SEU SALDO</Text>
+                    <Text 
+                      style={[
+                        styles.modalBalanceValue,
+                        balance >= selectedService.price ? styles.balanceSuccess : styles.balanceDanger
+                      ]}
+                    >
+                      KZ {balance.toLocaleString('pt-PT', { minimumFractionDigits: 2 })}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Insufficient Balance Alert */}
+                {balance < selectedService.price && (
+                  <View style={styles.alertBanner}>
+                    <Text style={styles.alertBannerText}>
+                      Aviso: Saldo insuficiente para contratar este serviço.
+                    </Text>
+                  </View>
+                )}
+
+                {/* Appointment Fields */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>DATA DO AGENDAMENTO</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.textInput}
+                      value={scheduledDate}
+                      onChangeText={setScheduledDate}
+                      placeholder="MM/DD/AAAA"
+                      placeholderTextColor="#9ca3af"
+                    />
+                    <Ionicons name="calendar-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>HORA DO AGENDAMENTO</Text>
+                  <View style={styles.inputWrapper}>
+                    <TextInput
+                      style={styles.textInput}
+                      value={scheduledTime}
+                      onChangeText={setScheduledTime}
+                      placeholder="10:00 AM"
+                      placeholderTextColor="#9ca3af"
+                    />
+                    <Ionicons name="time-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                  </View>
+                </View>
+              </View>
+
+              {/* Modal Buttons */}
+              <View style={styles.modalFooter}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setSelectedService(null)}
+                  disabled={bookingLoading}
+                >
+                  <Text style={styles.cancelBtnText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.confirmBtn,
+                    (balance < selectedService.price || bookingLoading) && styles.confirmBtnDisabled
+                  ]}
+                  onPress={handleConfirmBooking}
+                  disabled={balance < selectedService.price || bookingLoading}
+                >
+                  {bookingLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>Confirmar Contratação</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -415,17 +727,26 @@ const styles = StyleSheet.create({
     borderTopColor: '#f9fafb',
   },
   flexColName: {
-    flex: 2,
+    flex: 1.5,
     paddingRight: 8,
   },
   flexColPrice: {
-    width: 90,
+    flex: 1,
+    paddingRight: 4,
   },
   flexColDuration: {
-    width: 70,
+    flex: 1,
+    paddingRight: 4,
   },
-  flexColAction: {
+  flexColStatus: {
+    width: 60,
+    paddingRight: 4,
+  },
+  flexColActionProvider: {
     width: 30,
+  },
+  flexColActionClient: {
+    width: 80,
   },
   serviceName: {
     fontSize: 14,
@@ -439,13 +760,30 @@ const styles = StyleSheet.create({
   },
   servicePrice: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#4b5563',
+    fontWeight: '700',
+    color: '#1e3a8a',
+  },
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   serviceDuration: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
     color: '#6b7280',
+  },
+  statusBadge: {
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  statusBadgeText: {
+    color: '#059669',
+    fontSize: 10,
+    fontWeight: '700',
   },
   deleteButton: {
     width: 30,
@@ -454,5 +792,200 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fef2f2',
+  },
+  contratarBtn: {
+    backgroundColor: '#052a5e',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 80,
+  },
+  contratarBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 24,
+    gap: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    paddingBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#052a5e',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  modalBody: {
+    gap: 16,
+  },
+  detailSection: {
+    gap: 4,
+  },
+  modalLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#9ca3af',
+    letterSpacing: 1,
+  },
+  modalServiceName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  modalServiceDesc: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  priceBalanceGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#f3f4f6',
+    paddingVertical: 12,
+  },
+  gridCell: {
+    flex: 1,
+    gap: 4,
+  },
+  alignRight: {
+    alignItems: 'flex-end',
+  },
+  modalPriceValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1e3a8a',
+  },
+  modalBalanceValue: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  balanceSuccess: {
+    color: '#059669',
+  },
+  balanceDanger: {
+    color: '#ef4444',
+  },
+  alertBanner: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+    borderRadius: 12,
+    padding: 12,
+  },
+  alertBannerText: {
+    color: '#b91c1c',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#4b5563',
+    letterSpacing: 0.5,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 48,
+    backgroundColor: '#ffffff',
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    padding: 0,
+  },
+  inputIcon: {
+    marginLeft: 8,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 16,
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    color: '#4b5563',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  confirmBtn: {
+    flex: 1,
+    backgroundColor: '#052a5e',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#052a5e',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  confirmBtnDisabled: {
+    backgroundColor: '#9ca3af',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  confirmBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

@@ -40,7 +40,6 @@ export default function TabLayout() {
         options={{
           title: 'Serviços',
           tabBarIcon: ({ color }) => <Ionicons size={24} name="briefcase" color={color} />,
-          href: (isProvider ? '/servicos' : null) as any,
         }}
       />
       <Tabs.Screen

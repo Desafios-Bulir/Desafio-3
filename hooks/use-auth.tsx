@@ -20,6 +20,7 @@ interface AuthContextType {
   login: (credentials: LoginPayload) => Promise<User>;
   register: (data: RegisterPayload, role: "CLIENT" | "PROVIDER") => Promise<User>;
   logout: () => void;
+  updateUserBalance: (newBalance: number) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -67,6 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setApiToken(null);
   };
 
+  const updateUserBalance = (newBalance: number) => {
+    setUser((prev) => prev ? { ...prev, balance: newBalance } : null);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -77,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         register,
         logout,
+        updateUserBalance,
       }}
     >
       {children}
