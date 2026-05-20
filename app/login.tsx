@@ -48,7 +48,7 @@ export default function LoginScreen() {
       });
       
       // Navigate to main tabs upon successful login
-      router.replace('/(tabs)');
+      router.replace('/(tabs)' as any);
     } catch (err: any) {
       console.error('Login error details:', err);
       const message =

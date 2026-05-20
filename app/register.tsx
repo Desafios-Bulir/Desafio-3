@@ -71,7 +71,7 @@ export default function RegisterScreen() {
       await register(payload, role);
       
       // Navigate to main tabs upon successful registration
-      router.replace('/(tabs)');
+      router.replace('/(tabs)' as any);
     } catch (err: any) {
       console.error('Registration error details:', err);
       const message =
