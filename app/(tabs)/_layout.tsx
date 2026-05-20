@@ -35,6 +35,14 @@ export default function TabLayout() {
           href: (isProvider ? '/clientes' : null) as any,
         }}
       />
+      <Tabs.Screen
+        name="servicos"
+        options={{
+          title: 'Serviços',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="briefcase" color={color} />,
+          href: (isProvider ? '/servicos' : null) as any,
+        }}
+      />
     </Tabs>
   );
 }

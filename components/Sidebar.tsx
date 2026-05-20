@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 interface SidebarProps {
   visible: boolean;
   onClose: () => void;
-  currentRoute: 'dashboard' | 'clientes';
+  currentRoute: 'dashboard' | 'clientes' | 'servicos';
 }
 
 const { width } = Dimensions.get('window');
@@ -28,12 +28,14 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const handleNavigation = (route: 'dashboard' | 'clientes') => {
+  const handleNavigation = (route: 'dashboard' | 'clientes' | 'servicos') => {
     onClose();
     if (route === 'dashboard') {
       router.push('/(tabs)' as any);
     } else if (route === 'clientes') {
       router.push('/(tabs)/clientes' as any);
+    } else if (route === 'servicos') {
+      router.push('/(tabs)/servicos' as any);
     }
   };
 
@@ -109,20 +111,37 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
             </TouchableOpacity>
 
             {isProvider && (
-              <TouchableOpacity
-                style={[styles.navItem, currentRoute === 'clientes' && styles.navItemActive]}
-                onPress={() => handleNavigation('clientes')}
-                activeOpacity={0.6}
-              >
-                <Ionicons
-                  name={currentRoute === 'clientes' ? 'people' : 'people-outline'}
-                  size={20}
-                  color={currentRoute === 'clientes' ? '#052a5e' : '#4b5563'}
-                />
-                <Text style={[styles.navText, currentRoute === 'clientes' && styles.navTextActive]}>
-                  Meus Clientes
-                </Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={[styles.navItem, currentRoute === 'clientes' && styles.navItemActive]}
+                  onPress={() => handleNavigation('clientes')}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons
+                    name={currentRoute === 'clientes' ? 'people' : 'people-outline'}
+                    size={20}
+                    color={currentRoute === 'clientes' ? '#052a5e' : '#4b5563'}
+                  />
+                  <Text style={[styles.navText, currentRoute === 'clientes' && styles.navTextActive]}>
+                    Meus Clientes
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.navItem, currentRoute === 'servicos' && styles.navItemActive]}
+                  onPress={() => handleNavigation('servicos')}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons
+                    name={currentRoute === 'servicos' ? 'briefcase' : 'briefcase-outline'}
+                    size={20}
+                    color={currentRoute === 'servicos' ? '#052a5e' : '#4b5563'}
+                  />
+                  <Text style={[styles.navText, currentRoute === 'servicos' && styles.navTextActive]}>
+                    Meus Serviços
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
 

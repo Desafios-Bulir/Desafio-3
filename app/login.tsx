@@ -1,20 +1,20 @@
+import { Header } from '@/components/Header';
+import { useAuth } from '@/hooks/use-auth';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  ScrollView,
-  Platform,
-  ActivityIndicator,
-  Alert,
+  View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { Header } from '@/components/Header';
-import { useAuth } from '@/hooks/use-auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -77,7 +77,7 @@ export default function LoginScreen() {
         >
           {/* Welcome Heading */}
           <View style={styles.headerSection}>
-            <Text style={styles.title}>Bem-vindo de volta</Text>
+            <Text style={styles.title}>Bem-vindo</Text>
             <Text style={styles.subtitle}>
               Entre para gerir os seus serviços e reservas.
             </Text>
