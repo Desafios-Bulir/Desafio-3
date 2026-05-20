@@ -66,12 +66,12 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
           <View style={styles.backdrop} />
         </TouchableWithoutFeedback>
 
-        {/* Sidebar Container */}
+        {/* Sidebar Container - Blue Background */}
         <View style={[styles.menuContainer, { paddingTop: Math.max(insets.top, 16), paddingBottom: Math.max(insets.bottom, 16) }]}>
           {/* Header Close button */}
           <View style={styles.closeHeader}>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#4b5563" />
+              <Ionicons name="close" size={24} color="#dbeafe" />
             </TouchableOpacity>
           </View>
 
@@ -87,13 +87,28 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
               <Text style={styles.email} numberOfLines={1}>
                 {user?.email || 'email@exemplo.com'}
               </Text>
-              <View style={[styles.roleBadge, isProvider ? styles.providerBadge : styles.clientBadge]}>
-                <Text style={[styles.roleBadgeText, isProvider ? styles.providerBadgeText : styles.clientBadgeText]}>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>
                   {roleLabel}
                 </Text>
               </View>
             </View>
           </View>
+
+          {/* Wallet Balance Card inside Sidebar */}
+          <TouchableOpacity 
+            style={styles.sidebarWalletCard}
+            onPress={() => handleNavigation('carteira')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.sidebarWalletHeader}>
+              <Ionicons name="wallet-outline" size={16} color="#93c5fd" />
+              <Text style={styles.sidebarWalletLabel}>SALDO DA CARTEIRA</Text>
+            </View>
+            <Text style={styles.sidebarWalletValue}>
+              KZ {(user?.balance || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2 })}
+            </Text>
+          </TouchableOpacity>
 
           <View style={styles.divider} />
 
@@ -107,12 +122,13 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
               <Ionicons
                 name={currentRoute === 'dashboard' ? 'grid' : 'grid-outline'}
                 size={20}
-                color={currentRoute === 'dashboard' ? '#052a5e' : '#4b5563'}
+                color={currentRoute === 'dashboard' ? '#ffffff' : '#93c5fd'}
               />
               <Text style={[styles.navText, currentRoute === 'dashboard' && styles.navTextActive]}>
                 Painel Principal
               </Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={[styles.navItem, currentRoute === 'historico' && styles.navItemActive]}
               onPress={() => handleNavigation('historico')}
@@ -121,7 +137,7 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
               <Ionicons
                 name={currentRoute === 'historico' ? 'list' : 'list-outline'}
                 size={20}
-                color={currentRoute === 'historico' ? '#052a5e' : '#4b5563'}
+                color={currentRoute === 'historico' ? '#ffffff' : '#93c5fd'}
               />
               <Text style={[styles.navText, currentRoute === 'historico' && styles.navTextActive]}>
                 Histórico de Serviços
@@ -136,12 +152,13 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
               <Ionicons
                 name={currentRoute === 'carteira' ? 'wallet' : 'wallet-outline'}
                 size={20}
-                color={currentRoute === 'carteira' ? '#052a5e' : '#4b5563'}
+                color={currentRoute === 'carteira' ? '#ffffff' : '#93c5fd'}
               />
               <Text style={[styles.navText, currentRoute === 'carteira' && styles.navTextActive]}>
                 Minha Carteira
               </Text>
             </TouchableOpacity>
+
             {isProvider && (
               <>
                 <TouchableOpacity
@@ -152,7 +169,7 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
                   <Ionicons
                     name={currentRoute === 'clientes' ? 'people' : 'people-outline'}
                     size={20}
-                    color={currentRoute === 'clientes' ? '#052a5e' : '#4b5563'}
+                    color={currentRoute === 'clientes' ? '#ffffff' : '#93c5fd'}
                   />
                   <Text style={[styles.navText, currentRoute === 'clientes' && styles.navTextActive]}>
                     Meus Clientes
@@ -167,7 +184,7 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
                   <Ionicons
                     name={currentRoute === 'servicos' ? 'briefcase' : 'briefcase-outline'}
                     size={20}
-                    color={currentRoute === 'servicos' ? '#052a5e' : '#4b5563'}
+                    color={currentRoute === 'servicos' ? '#ffffff' : '#93c5fd'}
                   />
                   <Text style={[styles.navText, currentRoute === 'servicos' && styles.navTextActive]}>
                     Meus Serviços
@@ -185,7 +202,7 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
               onPress={handleLogout}
               activeOpacity={0.6}
             >
-              <Ionicons name="log-out-outline" size={20} color="#b91c1c" />
+              <Ionicons name="log-out-outline" size={20} color="#fca5a5" />
               <Text style={styles.logoutText}>Sair</Text>
             </TouchableOpacity>
           </View>
@@ -206,18 +223,20 @@ const styles = StyleSheet.create({
     left: 0,
     width: '100%',
     height: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   menuContainer: {
     width: SIDEBAR_WIDTH,
     height: '100%',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#052a5e',
     shadowColor: '#000',
     shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 16,
     paddingHorizontal: 20,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255, 255, 255, 0.1)',
   },
   closeHeader: {
     alignItems: 'flex-end',
@@ -230,13 +249,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#052a5e',
+    backgroundColor: '#3b82f6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -247,48 +266,63 @@ const styles = StyleSheet.create({
   },
   profileInfo: {
     flex: 1,
-    gap: 4,
+    gap: 2,
   },
   fullName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#111827',
+    color: '#ffffff',
   },
   email: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#dbeafe',
   },
   roleBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
-    marginTop: 2,
-  },
-  providerBadge: {
-    backgroundColor: '#eff6ff',
-  },
-  clientBadge: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    marginTop: 4,
   },
   roleBadgeText: {
     fontSize: 10,
     fontWeight: '700',
+    color: '#ffffff',
   },
-  providerBadgeText: {
-    color: '#1d4ed8',
+  sidebarWalletCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    padding: 14,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  clientBadgeText: {
-    color: '#374151',
+  sidebarWalletHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sidebarWalletLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#93c5fd',
+    letterSpacing: 1,
+  },
+  sidebarWalletValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginTop: 6,
   },
   divider: {
     height: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginVertical: 12,
   },
   navSection: {
     flex: 1,
-    gap: 8,
+    gap: 6,
     marginTop: 8,
   },
   navItem: {
@@ -300,15 +334,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   navItemActive: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   navText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4b5563',
+    color: '#dbeafe',
   },
   navTextActive: {
-    color: '#052a5e',
+    color: '#ffffff',
+    fontWeight: '700',
   },
   footerSection: {
     marginBottom: Platform.OS === 'ios' ? 12 : 0,
@@ -323,6 +358,6 @@ const styles = StyleSheet.create({
   logoutText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#b91c1c',
+    color: '#fca5a5',
   },
 });
