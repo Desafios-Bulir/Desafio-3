@@ -2,10 +2,13 @@ import axios from "axios";
 import { Platform } from "react-native";
 
 // Expo uses EXPO_PUBLIC_ prefix for environment variables
-const API_URL = process.env.EXPO_PUBLIC_API_URL || Platform.select({
-  android: "http://10.0.2.2:4000",
-  default: "http://localhost:4000",
-});
+const API_URL = 
+  process.env.EXPO_PUBLIC_API_URL || 
+  process.env.NEXT_PUBLIC_API_URL || 
+  Platform.select({
+    android: "http://127.0.0.1:4000",
+    default: "http://127.0.0.1:4000",
+  });
 
 export const api = axios.create({
   baseURL: API_URL,
