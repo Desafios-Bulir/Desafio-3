@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 interface SidebarProps {
   visible: boolean;
   onClose: () => void;
-  currentRoute: 'dashboard' | 'clientes' | 'servicos';
+  currentRoute: 'dashboard' | 'clientes' | 'servicos' | 'historico' | 'carteira';
 }
 
 const { width } = Dimensions.get('window');
@@ -28,7 +28,7 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
 
-  const handleNavigation = (route: 'dashboard' | 'clientes' | 'servicos') => {
+  const handleNavigation = (route: 'dashboard' | 'clientes' | 'servicos' | 'historico' | 'carteira') => {
     onClose();
     if (route === 'dashboard') {
       router.push('/(tabs)' as any);
@@ -36,6 +36,10 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
       router.push('/(tabs)/clientes' as any);
     } else if (route === 'servicos') {
       router.push('/(tabs)/servicos' as any);
+    } else if (route === 'historico') {
+      router.push('/(tabs)/historico' as any);
+    } else if (route === 'carteira') {
+      router.push('/(tabs)/carteira' as any);
     }
   };
 
@@ -109,7 +113,35 @@ export function Sidebar({ visible, onClose, currentRoute }: SidebarProps) {
                 Painel Principal
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.navItem, currentRoute === 'historico' && styles.navItemActive]}
+              onPress={() => handleNavigation('historico')}
+              activeOpacity={0.6}
+            >
+              <Ionicons
+                name={currentRoute === 'historico' ? 'list' : 'list-outline'}
+                size={20}
+                color={currentRoute === 'historico' ? '#052a5e' : '#4b5563'}
+              />
+              <Text style={[styles.navText, currentRoute === 'historico' && styles.navTextActive]}>
+                Histórico de Serviços
+              </Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity
+              style={[styles.navItem, currentRoute === 'carteira' && styles.navItemActive]}
+              onPress={() => handleNavigation('carteira')}
+              activeOpacity={0.6}
+            >
+              <Ionicons
+                name={currentRoute === 'carteira' ? 'wallet' : 'wallet-outline'}
+                size={20}
+                color={currentRoute === 'carteira' ? '#052a5e' : '#4b5563'}
+              />
+              <Text style={[styles.navText, currentRoute === 'carteira' && styles.navTextActive]}>
+                Minha Carteira
+              </Text>
+            </TouchableOpacity>
             {isProvider && (
               <>
                 <TouchableOpacity

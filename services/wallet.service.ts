@@ -13,7 +13,7 @@ export interface TransactionResponse {
   toUserId: string;
   toUserEmail: string;
   amount: number;
-  bookingId: string;
+  bookingId?: string | null;
   createdAt: string;
   type: "debit" | "credit";
 }

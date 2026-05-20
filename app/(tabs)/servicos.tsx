@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import { Redirect, useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/hooks/use-auth';
 import { Sidebar } from '@/components/Sidebar';
@@ -59,12 +59,13 @@ export default function ServicosScreen() {
     }
   }
 
-  useEffect(() => {
-    if (!isAuthenticated || !isProvider) {
-      return;
-    }
-    fetchServices();
-  }, [user, isAuthenticated, isProvider]);
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && isProvider) {
+        fetchServices();
+      }
+    }, [isAuthenticated, isProvider])
+  );
 
   // Handle service deletion
   const handleDeleteService = (id: string, name: string) => {

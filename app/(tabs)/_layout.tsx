@@ -43,6 +43,20 @@ export default function TabLayout() {
           href: (isProvider ? '/servicos' : null) as any,
         }}
       />
+      <Tabs.Screen
+        name="historico"
+        options={{
+          title: 'Histórico',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="list" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="carteira"
+        options={{
+          title: 'Carteira',
+          tabBarIcon: ({ color }) => <Ionicons size={24} name="wallet" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
